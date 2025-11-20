@@ -3,11 +3,7 @@ const cheerio = require('cheerio');
 
 class WebsiteAnalyzer {
   constructor() {
-    // ======================================================
-    // FINANCING & QUOTING KEYWORDS
-    // ======================================================
     this.financingKeywords = [
-      // Financing related
       "financing", "finance", "apply now", "credit", "loan",
       "payment plan", "installment", "monthly payment",
       "deferred payment", "credit score", "no credit check",
@@ -18,35 +14,21 @@ class WebsiteAnalyzer {
       "affirm", "klarna", "afterpay", "sezzle", "paypal credit",
       "finance available",
 
-      // QUOTING workflows
-      "quote",
-      "instant quote",
-      "get a quote",
-      "request a quote",
-      "free quote",
-      "online quote",
-      "quick quote",
-      "quote now",
-      "get pricing",
-      "see pricing",
-      "get an instant quote",
-      "request estimate",
-      "get estimate"
+      // Quoting / Pricing indicators
+      "quote", "instant quote", "get a quote", "request a quote",
+      "free quote", "online quote", "quick quote", "quote now",
+      "get pricing", "see pricing", "get an instant quote",
+      "request estimate", "get estimate"
     ];
 
-    // High confidence = instantly Proactive
     this.highConfidenceKeywords = [
       "apply now", "financing", "credit approval",
       "payment plan", "buy now pay later",
       "monthly payment", "affirm", "klarna",
       "afterpay", "finance options", "get approved",
 
-      // High confidence quote triggers
-      "instant quote",
-      "get a quote",
-      "request a quote",
-      "quote now",
-      "get an instant quote"
+      "instant quote", "get a quote", "request a quote",
+      "quote now", "get an instant quote"
     ];
   }
 
@@ -64,7 +46,8 @@ class WebsiteAnalyzer {
         matchedKeywords: analysis.matchedKeywords,
         contentLength: content.length,
         javascriptRendered: false,
-        analysisMethod: "axios"
+        analysisMethod: "axios",
+        fullText: content  // REQUIRED FOR DEBUG
       };
 
     } catch (error) {
@@ -73,7 +56,7 @@ class WebsiteAnalyzer {
   }
 
   // ======================================================
-  // FETCH HTML VIA AXIOS AND NORMALIZE TEXT
+  // FETCH HTML VIA AXIOS
   // ======================================================
   async fetchWithAxios(url) {
     try {
@@ -86,17 +69,15 @@ class WebsiteAnalyzer {
 
       const $ = cheerio.load(response.data);
 
-      // Remove script/style tags to avoid noise
       $("script, style, noscript").remove();
 
-      // Normalize text fully (fixes unicode spacing issues!)
       return $("body")
         .text()
-        .normalize("NFKD")                      // normalize accents & unicode
+        .normalize("NFKD")
         .toLowerCase()
-        .replace(/[\u00A0\u1680\u180E\u2000-\u200B\u202F\u205F\u3000]/g, " ") // unify unicode spaces!!
-        .replace(/[–—]/g, "-")                 // normalize long dashes
-        .replace(/\s+/g, " ")                  // collapse multiple spaces
+        .replace(/[\u00A0\u1680\u180E\u2000-\u200B\u202F\u205F\u3000]/g, " ")
+        .replace(/[–—]/g, "-")
+        .replace(/\s+/g, " ")
         .trim();
 
     } catch (err) {
@@ -112,7 +93,6 @@ class WebsiteAnalyzer {
     let confidenceScore = 0;
     let highConfidenceMatches = 0;
 
-    // Look for ANY instance of keywords (no word-boundaries)
     this.financingKeywords.forEach(keyword => {
       const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const regex = new RegExp(escaped, "gi");
@@ -134,24 +114,17 @@ class WebsiteAnalyzer {
       }
     });
 
-    // Cap confidence score
     confidenceScore = Math.min(confidenceScore, 1.0);
 
-    // Final proactive classification rules
     const isFinancingDetected =
       matchedKeywords.length > 0 &&
       (highConfidenceMatches > 0 || matchedKeywords.length >= 2);
 
-return {
-  classification: analysis.isFinancingDetected ? "Proactive" : "Non User",
-  confidence: analysis.confidence,
-  matchedKeywords: analysis.matchedKeywords,
-  contentLength: content.length,
-  javascriptRendered: false,
-  analysisMethod: "axios",
-  fullText: content      // <-- REQUIRED FOR DEBUG MODE
-};
-
+    return {
+      isFinancingDetected,
+      confidence: Number(confidenceScore.toFixed(3)),
+      matchedKeywords
+    };
   }
 }
 

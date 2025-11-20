@@ -1,7 +1,6 @@
 {
   "name": "website-proactive-checker",
   "version": "1.0.0",
-  "type": "module",
   "description": "Detects whether a vendor website offers financing or credit services.",
   "main": "index.js",
   "scripts": {
@@ -10,6 +9,11 @@
   "dependencies": {
     "axios": "^1.6.7",
     "cheerio": "^1.0.0-rc.12",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "helmet": "^7.0.0",
+    "cors": "^2.8.5",
+    "express-rate-limit": "^7.0.0",
+    "dotenv": "^16.3.0",
+    "puppeteer": "^22.7.1"
   }
 }

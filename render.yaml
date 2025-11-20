@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: website-proactive-checker
+    env: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    autoDeploy: true
+    envVars:
+      NODE_VERSION: 22
+    healthCheckPath: "/"

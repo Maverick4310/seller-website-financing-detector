@@ -161,7 +161,7 @@ app.get('/', (req, res) => {
     endpoints: {
       "POST /analyze": "Analyze website via POST body",
       "GET /analyze?url=": "Analyze website via query",
-      "GET /analyze?url=x&debug=true": "Includes extracted text for troubleshooting",
+      "GET /analyze?url=x&debug=true": "Includes extracted text for troubleshooting", 
       "GET /health": "Health check"
     }
   });

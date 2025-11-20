@@ -1,6 +1,7 @@
 {
   "name": "website-proactive-checker",
   "version": "1.0.0",
+  "type": "module",
   "description": "Detects whether a vendor website offers financing or credit services.",
   "main": "index.js",
   "scripts": {

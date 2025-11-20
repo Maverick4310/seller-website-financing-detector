@@ -24,16 +24,15 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Analyzer instance
 const analyzer = new WebsiteAnalyzer();
 
-// ===========================
-// Health Check
-// ===========================
+// =====================================================
+// HEALTH CHECK
+// =====================================================
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: "healthy",
@@ -42,12 +41,13 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ===========================
-// POST /analyze
-// ===========================
+// =====================================================
+// POST /analyze   (main production endpoint)
+// =====================================================
 app.post('/analyze', async (req, res) => {
   try {
     const { url } = req.body;
+    const debug = req.query.debug === "true";
 
     if (!url) {
       return res.status(400).json({
@@ -56,7 +56,6 @@ app.post('/analyze', async (req, res) => {
       });
     }
 
-    // Validate URL format
     try {
       new URL(url);
     } catch {
@@ -66,19 +65,31 @@ app.post('/analyze', async (req, res) => {
       });
     }
 
+    // Run analyzer
     const result = await analyzer.analyzeWebsite(url);
 
-    return res.status(200).json({
+    // Build response
+    const response = {
       url,
       classification: result.classification,
       confidence: result.confidence,
       matchedKeywords: result.matchedKeywords,
       analysisDate: new Date().toISOString(),
       status: "success"
-    });
+    };
+
+    // Include debug data
+    if (debug && result.fullText) {
+      response.debug = {
+        extractedText: result.fullText.substring(0, 5000), // Prevent huge response
+        textLength: result.fullText.length
+      };
+    }
+
+    res.status(200).json(response);
 
   } catch (err) {
-    return res.status(500).json({
+    res.status(500).json({
       error: "Failed to analyze website",
       details: err.message,
       status: "error"
@@ -86,12 +97,12 @@ app.post('/analyze', async (req, res) => {
   }
 });
 
-// ===========================
-// GET /analyze?url=
-// ===========================
+// =====================================================
+// GET /analyze?url= (for browser testing)
+// =====================================================
 app.get('/analyze', async (req, res) => {
   try {
-    const { url } = req.query;
+    const { url, debug } = req.query;
 
     if (!url) {
       return res.status(400).json({
@@ -112,17 +123,26 @@ app.get('/analyze', async (req, res) => {
 
     const result = await analyzer.analyzeWebsite(url);
 
-    return res.status(200).json({
+    const response = {
       url,
       classification: result.classification,
       confidence: result.confidence,
       matchedKeywords: result.matchedKeywords,
       analysisDate: new Date().toISOString(),
       status: "success"
-    });
+    };
+
+    if (debug === "true" && result.fullText) {
+      response.debug = {
+        extractedText: result.fullText.substring(0, 5000),
+        textLength: result.fullText.length
+      };
+    }
+
+    res.status(200).json(response);
 
   } catch (err) {
-    return res.status(500).json({
+    res.status(500).json({
       error: "Failed to analyze website",
       details: err.message,
       status: "error"
@@ -130,25 +150,26 @@ app.get('/analyze', async (req, res) => {
   }
 });
 
-// ===========================
-// Root API documentation
-// ===========================
+// =====================================================
+// API documentation
+// =====================================================
 app.get('/', (req, res) => {
   res.json({
     service: "Website Financing Analyzer",
     version: "1.0.0",
-    description: "Scans websites to determine if they offer financing",
+    description: "Scans websites to detect financing, quoting, and lead-gen behavior",
     endpoints: {
       "POST /analyze": "Analyze website via POST body",
-      "GET /analyze?url=": "Analyze website via URL query parameter",
+      "GET /analyze?url=": "Analyze website via query",
+      "GET /analyze?url=x&debug=true": "Includes extracted text for troubleshooting",
       "GET /health": "Health check"
     }
   });
 });
 
-// ===========================
+// =====================================================
 // 404 Handler
-// ===========================
+// =====================================================
 app.use('*', (req, res) => {
   res.status(404).json({
     error: "Endpoint not found",
@@ -156,9 +177,9 @@ app.use('*', (req, res) => {
   });
 });
 
-// ===========================
+// =====================================================
 // Start server
-// ===========================
+// =====================================================
 app.listen(PORT, () => {
   console.log(`🚀 Analyzer running on port ${PORT}`);
 });

@@ -142,11 +142,16 @@ class WebsiteAnalyzer {
       matchedKeywords.length > 0 &&
       (highConfidenceMatches > 0 || matchedKeywords.length >= 2);
 
-    return {
-      isFinancingDetected,
-      confidence: Number(confidenceScore.toFixed(3)),
-      matchedKeywords
-    };
+return {
+  classification: analysis.isFinancingDetected ? "Proactive" : "Non User",
+  confidence: analysis.confidence,
+  matchedKeywords: analysis.matchedKeywords,
+  contentLength: content.length,
+  javascriptRendered: false,
+  analysisMethod: "axios",
+  fullText: content      // <-- REQUIRED FOR DEBUG MODE
+};
+
   }
 }
 

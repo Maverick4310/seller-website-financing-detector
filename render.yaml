@@ -1,11 +1,38 @@
 services:
   - type: web
-    name: website-proactive-checker
+    name: navitas-website-analyzer
     env: node
-    plan: free
+    plan: starter
     buildCommand: "npm install"
-    startCommand: "npm start"
-    autoDeploy: true
+    startCommand: "node index.js"
+
+    # Increased timeout for crawling multiple pages
+    timeout: 120
+
     envVars:
-      NODE_VERSION: 22
-    healthCheckPath: "/"
+      - key: NODE_ENV
+        value: production
+      - key: CRAWL_MAX_PAGES
+        value: 5
+      - key: CRAWL_DELAY_MS
+        value: 100
+      - key: ENABLE_DEBUG_LOGS
+        value: false
+
+    # Automatically restart if memory exceeds expected range
+    autoDeploy: true
+
+    # Ensures more stable performance during heavy crawling
+    disk:
+      name: analyzer-cache
+      mountPath: /var/cache/analyzer
+      sizeGB: 1
+
+    # Better scaling + fewer stalls under heavy load
+    healthCheckPath: /health
+    healthCheckTimeout: 10
+
+    # Optional: prevent too many concurrent containers
+    scaling:
+      minInstances: 1
+      maxInstances: 2

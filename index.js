@@ -1,104 +1,197 @@
-import express from 'express';
-import axios from 'axios';
-import cheerio from 'cheerio';
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const dotenv = require('dotenv');
+const WebsiteAnalyzer = require('./websiteanalyzer');
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Security middleware
+app.use(helmet());
+app.use(cors());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: {
+    error: 'Too many requests from this IP, please try again later.'
+  }
+});
+
+app.use(limiter);
+
+// Body parsing middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-/* ============================================================
-   KEYWORDS THAT INDICATE A PROACTIVE (CREDIT OFFERING) WEBSITE
-   ============================================================ */
-const KEYWORDS = [
-    "financing",
-    "finance",
-    "apply now",
-    "apply today",
-    "credit application",
-    "credit app",
-    "lease",
-    "leasing",
-    "get approved",
-    "payment options",
-    "0% financing",
-    "apply for credit",
-    "instant approval",
-    "term financing",
-    "monthly payments",
-    "payment plan",
-    "business financing",
-    "consumer financing",
-    "financing available",
-    "financing options"
-];
+// Initialize website analyzer
+const analyzer = new WebsiteAnalyzer();
 
-/* ============================================================
-   UTIL: Fetch website HTML safely
-   ============================================================ */
-async function fetchWebsite(url) {
-    try {
-        const response = await axios.get(url, {
-            timeout: 8000,
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Navitas Financing Discovery Bot)"
-            }
-        });
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
 
-        return response.data;
-    } catch (err) {
-        console.error("Error fetching site:", err.message);
-        return null;
-    }
-}
-
-/* ============================================================
-   ROUTE: POST /scan
-   Request body:
-   { "url": "https://examplevendor.com" }
-   ============================================================ */
-app.post('/scan', async (req, res) => {
+// Main analysis endpoint
+app.post('/analyze', async (req, res) => {
+  try {
     const { url } = req.body;
 
+    // Validate URL
     if (!url) {
-        return res.status(400).json({ error: "URL is required." });
+      return res.status(400).json({
+        error: 'URL is required',
+        status: 'error'
+      });
     }
 
-    console.log(`🔍 Scanning website: ${url}`);
-
-    const html = await fetchWebsite(url);
-    if (!html) {
-        return res.status(500).json({
-            error: "Unable to fetch website HTML",
-            status: "Unknown"
-        });
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch (error) {
+      return res.status(400).json({
+        error: 'Invalid URL format',
+        status: 'error'
+      });
     }
 
-    const $ = cheerio.load(html);
-    const text = $("body").text().toLowerCase();
+    console.log(`Analyzing URL: ${url}`);
 
-    // Check for keyword matches
-    const matches = KEYWORDS.filter(keyword => text.includes(keyword.toLowerCase()));
+    // Analyze the website
+    const result = await analyzer.analyzeWebsite(url);
 
-    const result = matches.length > 0 ? "Proactive" : "Non User";
-
-    return res.json({
-        status: result,
-        url: url,
-        matchedKeywords: matches,
-        totalMatches: matches.length
+    res.status(200).json({
+      url: url,
+      classification: result.classification,
+      confidence: result.confidence,
+      matchedKeywords: result.matchedKeywords,
+      analysisDate: new Date().toISOString(),
+      status: 'success'
     });
+
+  } catch (error) {
+    console.error('Analysis error:', error.message);
+    
+    res.status(500).json({
+      error: 'Failed to analyze website',
+      details: error.message,
+      status: 'error'
+    });
+  }
 });
 
-/* ============================================================
-   HEALTH CHECK
-   ============================================================ */
+// GET endpoint for simple URL analysis
+app.get('/analyze', async (req, res) => {
+  try {
+    const { url } = req.query;
+
+    if (!url) {
+      return res.status(400).json({
+        error: 'URL parameter is required',
+        status: 'error',
+        usage: 'GET /analyze?url=https://example.com'
+      });
+    }
+
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch (error) {
+      return res.status(400).json({
+        error: 'Invalid URL format',
+        status: 'error'
+      });
+    }
+
+    console.log(`Analyzing URL via GET: ${url}`);
+
+    const result = await analyzer.analyzeWebsite(url);
+
+    res.status(200).json({
+      url: url,
+      classification: result.classification,
+      confidence: result.confidence,
+      matchedKeywords: result.matchedKeywords,
+      analysisDate: new Date().toISOString(),
+      status: 'success'
+    });
+
+  } catch (error) {
+    console.error('Analysis error:', error.message);
+    
+    res.status(500).json({
+      error: 'Failed to analyze website',
+      details: error.message,
+      status: 'error'
+    });
+  }
+});
+
+// API documentation endpoint
 app.get('/', (req, res) => {
-    res.send("Website Proactive Checker is running.");
+  res.json({
+    service: 'Website Financing Analyzer',
+    version: '1.0.0',
+    description: 'Analyzes websites to detect financing and credit offerings',
+    endpoints: {
+      'POST /analyze': {
+        description: 'Analyze a website for financing content',
+        body: {
+          url: 'Website URL to analyze'
+        },
+        response: {
+          classification: 'Proactive or Non User',
+          confidence: 'Confidence score (0-1)',
+          matchedKeywords: 'Array of matched financing keywords'
+        }
+      },
+      'GET /analyze?url=': {
+        description: 'Analyze a website via GET request',
+        parameters: {
+          url: 'Website URL to analyze'
+        }
+      },
+      'GET /health': 'Health check endpoint'
+    },
+    examples: [
+      'POST /analyze with body: {"url": "https://example.com"}',
+      'GET /analyze?url=https://example.com'
+    ]
+  });
 });
 
-/* ============================================================
-   SERVER
-   ============================================================ */
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    status: 'error'
+  });
 });
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Endpoint not found',
+    status: 'error'
+  });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Website Financing Analyzer running on port ${PORT}`);
+  console.log(`📊 Ready to analyze websites for financing content`);
+  console.log(`🔗 API Documentation: http://localhost:${PORT}`);
+});
+
+module.exports = app;

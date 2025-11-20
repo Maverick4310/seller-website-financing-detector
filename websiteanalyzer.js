@@ -3,6 +3,9 @@ const cheerio = require('cheerio');
 
 class WebsiteAnalyzer {
   constructor() {
+    // ======================================================
+    // FINANCING & QUOTING KEYWORDS
+    // ======================================================
     this.financingKeywords = [
       "financing", "finance", "apply now", "credit", "loan",
       "payment plan", "installment", "monthly payment",
@@ -14,7 +17,7 @@ class WebsiteAnalyzer {
       "affirm", "klarna", "afterpay", "sezzle", "paypal credit",
       "finance available",
 
-      // Quoting / Pricing indicators
+      // Quoting
       "quote", "instant quote", "get a quote", "request a quote",
       "free quote", "online quote", "quick quote", "quote now",
       "get pricing", "see pricing", "get an instant quote",
@@ -23,31 +26,74 @@ class WebsiteAnalyzer {
 
     this.highConfidenceKeywords = [
       "apply now", "financing", "credit approval",
-      "payment plan", "buy now pay later",
-      "monthly payment", "affirm", "klarna",
-      "afterpay", "finance options", "get approved",
+      "payment plan", "buy now pay later", "monthly payment",
+      "affirm", "klarna", "afterpay", "finance options", "get approved",
 
       "instant quote", "get a quote", "request a quote",
       "quote now", "get an instant quote"
     ];
+
+    // SHALLOW CRAWL SETTINGS
+    this.maxPages = 5;
+    this.requestDelayMs = 100; // short pause between pages
   }
 
   // ======================================================
-  // MAIN ANALYSIS FUNCTION
+  // MAIN ANALYSIS — includes shallow crawling
   // ======================================================
   async analyzeWebsite(url) {
     try {
-      const content = await this.fetchWithAxios(url);
-      const analysis = this.analyzeContent(content);
+      const visited = new Set();
+      const toVisit = [url];
+      const allMatches = [];
+      let combinedConfidence = 0;
 
+      while (toVisit.length > 0 && visited.size < this.maxPages) {
+        const currentUrl = toVisit.shift();
+        if (!currentUrl || visited.has(currentUrl)) continue;
+
+        visited.add(currentUrl);
+
+        // Fetch HTML
+        const content = await this.fetchWithAxios(currentUrl);
+        const analysis = this.analyzeContent(content);
+
+        // Aggregate results
+        if (analysis.matchedKeywords.length > 0) {
+          allMatches.push(...analysis.matchedKeywords);
+          combinedConfidence += analysis.confidence;
+
+          // SHORT-CIRCUIT → Stop crawling immediately
+          return {
+            classification: "Proactive",
+            confidence: Math.min(1, combinedConfidence),
+            matchedKeywords: allMatches,
+            crawledPages: [...visited],
+            triggeredUrl: currentUrl,
+            status: "success"
+          };
+        }
+
+        // Extract internal link candidates
+        const internalLinks = this.extractLinks(content, url);
+
+        // Add candidates to visit queue
+        for (const link of internalLinks) {
+          if (toVisit.length < this.maxPages && !visited.has(link)) {
+            toVisit.push(link);
+          }
+        }
+
+        await this.sleep(this.requestDelayMs);
+      }
+
+      // No financing found anywhere
       return {
-        classification: analysis.isFinancingDetected ? "Proactive" : "Non User",
-        confidence: analysis.confidence,
-        matchedKeywords: analysis.matchedKeywords,
-        contentLength: content.length,
-        javascriptRendered: false,
-        analysisMethod: "axios",
-        fullText: content  // REQUIRED FOR DEBUG
+        classification: "Non User",
+        confidence: 0,
+        matchedKeywords: [],
+        crawledPages: [...visited],
+        status: "success"
       };
 
     } catch (error) {
@@ -56,19 +102,21 @@ class WebsiteAnalyzer {
   }
 
   // ======================================================
-  // FETCH HTML VIA AXIOS
+  // FETCH + NORMALIZE
   // ======================================================
   async fetchWithAxios(url) {
     try {
       const response = await axios.get(url, {
         timeout: 10000,
         headers: {
-          "User-Agent": "Mozilla/5.0 Navitas-Finance-Scanner"
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Accept": "text/html,application/xhtml+xml"
         }
       });
 
       const $ = cheerio.load(response.data);
-
       $("script, style, noscript").remove();
 
       return $("body")
@@ -81,12 +129,12 @@ class WebsiteAnalyzer {
         .trim();
 
     } catch (err) {
-      throw new Error(`Network error: ${err.message}`);
+      return ""; // Gracefully handle blocking
     }
   }
 
   // ======================================================
-  // KEYWORD & SCORING ENGINE
+  // KEYWORD ENGINE
   // ======================================================
   analyzeContent(content) {
     const matchedKeywords = [];
@@ -115,16 +163,47 @@ class WebsiteAnalyzer {
     });
 
     confidenceScore = Math.min(confidenceScore, 1.0);
-
-    const isFinancingDetected =
-      matchedKeywords.length > 0 &&
-      (highConfidenceMatches > 0 || matchedKeywords.length >= 2);
-
     return {
-      isFinancingDetected,
-      confidence: Number(confidenceScore.toFixed(3)),
+      confidence: confidenceScore,
       matchedKeywords
     };
+  }
+
+  // ======================================================
+  // EXTRACT INTERNAL LINKS FOR SHALLOW CRAWL
+  // ======================================================
+  extractLinks(content, baseUrl) {
+    const root = this.getRootDomain(baseUrl);
+    const links = new Set();
+
+    const regex = /href="([^"]+)"/gi;
+    let match;
+    while ((match = regex.exec(content))) {
+      let href = match[1];
+
+      // Make absolute if needed
+      if (href.startsWith("/")) href = root + href;
+
+      // Only keep internal links
+      if (!href.startsWith(root)) continue;
+
+      // Skip noise pages
+      if (/\.(jpg|png|gif|pdf|zip|svg)$/i.test(href)) continue;
+      if (/blog|news|about|privacy|terms|career|admin|login/i.test(href)) continue;
+
+      links.add(href);
+    }
+
+    return [...links];
+  }
+
+  getRootDomain(url) {
+    const u = new URL(url);
+    return `${u.protocol}//${u.host}`;
+  }
+
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 

@@ -56,7 +56,11 @@ class WebsiteAnalyzer {
 
       $("script, style, noscript").remove();
 
-      return $("body").text().toLowerCase().replace(/\s+/g, " ");
+      return $("body")
+        .text()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+        
     } catch (err) {
       throw new Error(`Network error: ${err.message}`);
     }

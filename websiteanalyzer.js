@@ -89,7 +89,7 @@ class WebsiteAnalyzer {
 
       // No financing found anywhere
       return {
-        classification: "Non User",
+        classification: "Non-User",
         confidence: 0,
         matchedKeywords: [],
         crawledPages: [...visited],

@@ -15,7 +15,7 @@ class WebsiteAnalyzer {
       "buy now pay later", "bnpl", "0% apr", "interest free",
       "special financing", "finance options", "payment options",
       "affirm", "klarna", "afterpay", "sezzle", "paypal credit",
-      "finance available",
+      "finance available", "leasing"
 
       // Quoting
       "quote", "instant quote", "get a quote", "request a quote",

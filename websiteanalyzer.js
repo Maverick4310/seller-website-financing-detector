@@ -7,7 +7,7 @@ class WebsiteAnalyzer {
     // FINANCING & QUOTING KEYWORDS
     // ======================================================
     this.financingKeywords = [
-      "financing", "finance", "apply now", "credit", "loan",
+      "financing", "finance", "apply now", "credit app", "credit appllication", "credit check",  "loan",
       "payment plan", "installment", "monthly payment",
       "deferred payment", "credit score", "no credit check",
       "bad credit", "credit approval", "instant credit",
@@ -28,6 +28,7 @@ class WebsiteAnalyzer {
       "apply now", "financing", "credit approval",
       "payment plan", "buy now pay later", "monthly payment",
       "affirm", "klarna", "afterpay", "finance options", "get approved",
+      "credit app", "credit appllication",
 
       "instant quote", "get a quote", "request a quote",
       "quote now", "get an instant quote"

@@ -11,7 +11,7 @@ class WebsiteAnalyzer {
       "payment plan", "installment", "monthly payment",
       "deferred payment", "credit score", "no credit check",
       "bad credit", "credit approval", "instant credit",
-      "application", "pre-qualify", "get approved",
+       "pre-qualify", "get approved",
       "buy now pay later", "bnpl", "0% apr", "interest free",
       "special financing", "finance options", "payment options",
       "affirm", "klarna", "afterpay", "sezzle", "paypal credit",

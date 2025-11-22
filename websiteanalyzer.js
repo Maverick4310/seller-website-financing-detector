@@ -7,7 +7,7 @@ class WebsiteAnalyzer {
     // FINANCING & QUOTING KEYWORDS
     // ======================================================
     this.financingKeywords = [
-      "financing", "finance", "apply now", "credit app", "credit appllication", "credit check",  "loan",
+      "financing", "apply now", "credit app", "credit appllication", "credit check",  "loan",
       "payment plan", "installment", "monthly payment",
       "deferred payment", "credit score", "no credit check",
       "bad credit", "credit approval", "instant credit",
